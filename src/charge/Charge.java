@@ -5,7 +5,6 @@ import com.unimelb.swen30006.wifimodem.WifiModem;
 import simulation.Building;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class Charge {
@@ -16,10 +15,10 @@ public class Charge {
     private final Double activityUnitPrice;
     private static WifiModem wModem;
 
-    public Charge(Double markupPercentage, Double activityUnitPrice) throws Exception {
+    public Charge(Double markupPercentage, Double activityUnitPrice, WifiModem wModem){
         this.markupPercentage = markupPercentage;
         this.activityUnitPrice = activityUnitPrice;
-        wModem = WifiModem.getInstance(Building.MAILROOM_LOCATION);
+        this.wModem = wModem;
     }
 
     private void updatePreviousLookupServiceFee(int floorNumber, Double price){

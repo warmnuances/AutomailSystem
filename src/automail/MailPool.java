@@ -4,6 +4,7 @@ import java.util.LinkedList;
 import java.util.Comparator;
 import java.util.ListIterator;
 
+import charge.Charge;
 import exceptions.ItemTooHeavyException;
 
 /**
@@ -22,6 +23,7 @@ public class MailPool {
 		
 		public Item(MailItem mailItem) {
 			destination = mailItem.getDestFloor();
+			estimated_charge = charge.calculateCharge(mailItem);
 			this.mailItem = mailItem;
 		}
 	}
@@ -41,9 +43,11 @@ public class MailPool {
 	
 	private LinkedList<Item> pool;
 	private LinkedList<Robot> robots;
+	private Charge charge;
 
-	public MailPool(int nrobots){
+	public MailPool(int nrobots, Charge charge){
 		// Start empty
+		this.charge = charge;
 		pool = new LinkedList<Item>();
 		robots = new LinkedList<Robot>();
 	}
