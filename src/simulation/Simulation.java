@@ -74,12 +74,8 @@ public class Simulation {
          * This code section is for running a simulation
          */
         /* Instantiate MailPool and Automail */
-		Charge charge = null;
-		try {
-			charge = new Charge(0.059, 0.224,Building.MAILROOM_LOCATION);
-		} catch (Exception e){
-			e.printStackTrace();
-		}
+		Charge charge = new Charge(0.059, 0.224,Building.MAILROOM_LOCATION);
+
      	MailPool mailPool = new MailPool(NUM_ROBOTS, charge);
         Automail automail = new Automail(mailPool, new ReportDelivery(), NUM_ROBOTS);
         MailGenerator mailGenerator = new MailGenerator(MAIL_TO_CREATE, MAIL_MAX_WEIGHT, mailPool, seedMap);

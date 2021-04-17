@@ -15,10 +15,15 @@ public class Charge {
     private final Double activityUnitPrice;
     private static WifiModem wModem;
 
-    public Charge(Double markupPercentage, Double activityUnitPrice, Integer installedOnFloor) throws Exception{
+    public Charge(Double markupPercentage, Double activityUnitPrice, Integer installedOnFloor){
         this.markupPercentage = markupPercentage;
         this.activityUnitPrice = activityUnitPrice;
-        this.wModem = WifiModem.getInstance(installedOnFloor);
+        try{
+            this.wModem = WifiModem.getInstance(installedOnFloor);
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+
     }
 
     private void updatePreviousLookupServiceFee(int floorNumber, Double price){

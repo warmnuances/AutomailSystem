@@ -40,6 +40,23 @@ public class MailPool {
 			return order;
 		}
 	}
+
+
+	public class PriorityComparator implements Comparator<Item> {
+		@Override
+		public int compare(Item i1, Item i2) {
+			int order = 0;
+			if (i1.estimated_charge > i2.estimated_charge) {
+				order = 1;
+			} else if (i1.estimated_charge < i2.estimated_charge) {
+				order = -1;
+			}
+			return order;
+		}
+	}
+
+
+
 	
 	private LinkedList<Item> pool;
 	private LinkedList<Robot> robots;
@@ -59,7 +76,7 @@ public class MailPool {
 	public void addToPool(MailItem mailItem) {
 		Item item = new Item(mailItem);
 		pool.add(item);
-		pool.sort(new ItemComparator());
+		pool.sort(new PriorityComparator());
 	}
 
 	/**
