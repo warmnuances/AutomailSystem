@@ -16,6 +16,7 @@ public class MailPool {
 
 	private class Item {
 		int destination;
+		double estimated_charge;
 		MailItem mailItem;
 		// Use stable sort to keep arrival time relative positions
 		
@@ -56,9 +57,7 @@ public class MailPool {
 		pool.add(item);
 		pool.sort(new ItemComparator());
 	}
-	
-	
-	
+
 	/**
      * load up any waiting robots with mailItems, if any.
      */

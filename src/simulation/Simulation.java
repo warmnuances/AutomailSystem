@@ -1,5 +1,6 @@
 package simulation;
 
+import charge.Charge;
 import exceptions.ExcessiveDeliveryException;
 import exceptions.ItemTooHeavyException;
 import exceptions.MailAlreadyDeliveredException;
@@ -76,7 +77,12 @@ public class Simulation {
      	MailPool mailPool = new MailPool(NUM_ROBOTS);
         Automail automail = new Automail(mailPool, new ReportDelivery(), NUM_ROBOTS);
         MailGenerator mailGenerator = new MailGenerator(MAIL_TO_CREATE, MAIL_MAX_WEIGHT, mailPool, seedMap);
-        
+        try {
+			Charge charge = new Charge(0.059, 0.224);
+		} catch (Exception e) {
+        	e.printStackTrace();
+		}
+
         /** Generate all the mails */
         mailGenerator.generateAllMail();
         while(MAIL_DELIVERED.size() != mailGenerator.MAIL_TO_CREATE) {
