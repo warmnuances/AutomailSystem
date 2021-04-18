@@ -1,6 +1,7 @@
 package automail;
 
-import charge.Charge;
+import charge.ChargeReceipt;
+import charge.Charger;
 import exceptions.ExcessiveDeliveryException;
 import exceptions.ItemTooHeavyException;
 import simulation.Building;
@@ -12,7 +13,7 @@ import simulation.IMailDelivery;
  */
 public class Robot {
 	
-    static public final int INDIVIDUAL_MAX_WEIGHT = 2000;
+    public static final int INDIVIDUAL_MAX_WEIGHT = 2000;
 
     IMailDelivery delivery;
     protected final String id;
@@ -21,9 +22,10 @@ public class Robot {
     public RobotState current_state;
     private int current_floor;
     private int destination_floor;
-    private MailPool mailPool;
+    private final MailPool mailPool;
+    private final Charger charger;
     private boolean receivedDispatch;
-    
+
     private MailItem deliveryItem = null;
     private MailItem tube = null;
     
@@ -33,17 +35,17 @@ public class Robot {
     /**
      * Initiates the robot's location at the start to be at the mailroom
      * also set it to be waiting for mail.
-     * @param behaviour governs selection of mail items for delivery and behaviour on priority arrivals
      * @param delivery governs the final delivery
      * @param mailPool is the source of mail items
      */
-    public Robot(IMailDelivery delivery, MailPool mailPool, int number){
+    public Robot(IMailDelivery delivery, MailPool mailPool, Charger charger, int number){
     	this.id = "R" + number;
         // current_state = RobotState.WAITING;
-    	current_state = RobotState.RETURNING;
-        current_floor = Building.MAILROOM_LOCATION;
+    	this.current_state = RobotState.RETURNING;
+        this.current_floor = Building.MAILROOM_LOCATION;
         this.delivery = delivery;
         this.mailPool = mailPool;
+        this.charger = charger;
         this.receivedDispatch = false;
         this.deliveryCounter = 0;
     }
@@ -61,55 +63,61 @@ public class Robot {
      */
     public void operate() throws ExcessiveDeliveryException {   
     	switch(current_state) {
-    		/** This state is triggered when the robot is returning to the mailroom after a delivery */
+            /* This state is triggered when the robot is returning to the mailroom after a delivery */
     		case RETURNING:
-    			/** If its current position is at the mailroom, then the robot should change state */
+                /* If its current position is at the mailroom, then the robot should change state */
                 if(current_floor == Building.MAILROOM_LOCATION){
                 	if (tube != null) {
-                		mailPool.addToPool(tube);
-                        System.out.printf("T: %3d > old addToPool [%s]%n", Clock.Time(), tube.toString());
-                        tube = null;
+                		this.mailPool.addToPool(this.tube);
+                        System.out.printf("T: %3d > old addToPool [%s]%n", Clock.Time(), this.tube.toString());
+                        this.tube = null;
                 	}
-        			/** Tell the sorter the robot is ready */
-        			mailPool.registerWaiting(this);
+                    /* Tell the sorter the robot is ready */
+        			this.mailPool.registerWaiting(this);
                 	changeState(RobotState.WAITING);
                 } else {
-                	/** If the robot is not at the mailroom floor yet, then move towards it! */
+                    /* If the robot is not at the mailroom floor yet, then move towards it! */
                     moveTowards(Building.MAILROOM_LOCATION);
                 	break;
                 }
     		case WAITING:
-                /** If the StorageTube is ready and the Robot is waiting in the mailroom then start the delivery */
-                if(!isEmpty() && receivedDispatch){
-                	receivedDispatch = false;
-                	deliveryCounter = 0; // reset delivery counter
+                /* If the StorageTube is ready and the Robot is waiting in the mailroom then start the delivery */
+                if(!isEmpty() && this.receivedDispatch){
+                	this.receivedDispatch = false;
+                    this.deliveryCounter = 0; // reset delivery counter
                 	setDestination();
                 	changeState(RobotState.DELIVERING);
                 }
                 break;
     		case DELIVERING:
-    			if(current_floor == destination_floor){ // If already here drop off either way
-                    /** Delivery complete, report this to the simulator! */
-                    delivery.deliver(deliveryItem);
-                    deliveryItem = null;
-                    deliveryCounter++;
-                    if(deliveryCounter > 2){  // Implies a simulation bug
+    			if(this.current_floor == this.destination_floor){ // If already here drop off either way
+                    /* Delivery complete, report this to the simulator! */
+                    /* Formula for calculating activity units is a round trip from mailroom to destination for now
+                    *  with a single lookup*/
+                    double activityUnits = 2 * (this.destination_floor - Building.MAILROOM_LOCATION) *
+                                           ActivityUnit.ROBOT_MOVEMENT + ActivityUnit.REMOTE_LOOKUP;
+                    ChargeReceipt chargeReceipt = this.charger.chargeTenant(this.destination_floor, activityUnits);
+
+                    this.delivery.deliver(new ChargedMailItem(this.deliveryItem, chargeReceipt));
+                    this.deliveryItem = null;
+                    this.deliveryCounter++;
+                    if(this.deliveryCounter > 2){  // Implies a simulation bug
                     	throw new ExcessiveDeliveryException();
                     }
-                    /** Check if want to return, i.e. if there is no item in the tube*/
-                    if(tube == null){
+                    /* Check if want to return, i.e. if there is no item in the tube*/
+                    if(this.tube == null){
                     	changeState(RobotState.RETURNING);
                     }
                     else{
-                        /** If there is another item, set the robot's route to the location to deliver the item */
-                        deliveryItem = tube;
-                        tube = null;
+                        /* If there is another item, set the robot's route to the location to deliver the item */
+                        this.deliveryItem = this.tube;
+                        this.tube = null;
                         setDestination();
                         changeState(RobotState.DELIVERING);
                     }
     			} else {
-	        		/** The robot is not at the destination yet, move towards it! */
-	                moveTowards(destination_floor);
+                    /* The robot is not at the destination yet, move towards it! */
+	                moveTowards(this.destination_floor);
     			}
                 break;
     	}
@@ -119,8 +127,8 @@ public class Robot {
      * Sets the route for the robot
      */
     private void setDestination() {
-        /** Set the destination floor */
-        destination_floor = deliveryItem.getDestFloor();
+        /* Set the destination floor */
+        this.destination_floor = this.deliveryItem.getDestFloor();
     }
 
     /**
@@ -128,15 +136,15 @@ public class Robot {
      * @param destination the floor towards which the robot is moving
      */
     private void moveTowards(int destination) {
-        if(current_floor < destination){
-            current_floor++;
+        if(this.current_floor < destination){
+            this.current_floor++;
         } else {
-            current_floor--;
+            this.current_floor--;
         }
     }
     
     private String getIdTube() {
-    	return String.format("%s(%1d)", this.id, (tube == null ? 0 : 1));
+    	return String.format("%s(%1d)", this.id, (this.tube == null ? 0 : 1));
     }
     
     /**
@@ -144,34 +152,30 @@ public class Robot {
      * @param nextState the state to which the robot is transitioning
      */
     private void changeState(RobotState nextState){
-    	assert(!(deliveryItem == null && tube != null));
-    	if (current_state != nextState) {
-            System.out.printf("T: %3d > %7s changed from %s to %s%n", Clock.Time(), getIdTube(), current_state, nextState);
+    	assert(!(this.deliveryItem == null && this.tube != null));
+    	if (this.current_state != nextState) {
+            System.out.printf("T: %3d > %7s changed from %s to %s%n", Clock.Time(), getIdTube(), this.current_state, nextState);
     	}
-    	current_state = nextState;
+        this.current_state = nextState;
     	if(nextState == RobotState.DELIVERING){
-            System.out.printf("T: %3d > %7s-> [%s]%n", Clock.Time(), getIdTube(), deliveryItem.toString());
+            System.out.printf("T: %3d > %7s-> [%s]%n", Clock.Time(), getIdTube(), this.deliveryItem.toString());
     	}
     }
 
-	public MailItem getTube() {
-		return tube;
-	}
-
 	public boolean isEmpty() {
-		return (deliveryItem == null && tube == null);
+		return (this.deliveryItem == null && this.tube == null);
 	}
 
 	public void addToHand(MailItem mailItem) throws ItemTooHeavyException {
-		assert(deliveryItem == null);
-		deliveryItem = mailItem;
-		if (deliveryItem.weight > INDIVIDUAL_MAX_WEIGHT) throw new ItemTooHeavyException();
+		assert(this.deliveryItem == null);
+        this.deliveryItem = mailItem;
+		if (this.deliveryItem.weight > INDIVIDUAL_MAX_WEIGHT) throw new ItemTooHeavyException();
 	}
 
 	public void addToTube(MailItem mailItem) throws ItemTooHeavyException {
-		assert(tube == null);
-		tube = mailItem;
-		if (tube.weight > INDIVIDUAL_MAX_WEIGHT) throw new ItemTooHeavyException();
+		assert(this.tube == null);
+        this.tube = mailItem;
+		if (this.tube.weight > INDIVIDUAL_MAX_WEIGHT) throw new ItemTooHeavyException();
 	}
 
 }

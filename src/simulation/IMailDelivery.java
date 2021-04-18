@@ -1,5 +1,6 @@
 package simulation;
 
+import automail.ChargedMailItem;
 import automail.MailItem;
 
 /**
@@ -11,5 +12,5 @@ public interface IMailDelivery {
      * Delivers an item at its floor
      * @param mailItem the mail item being delivered.
      */
-	void deliver(MailItem mailItem);
+	void deliver(ChargedMailItem mailItem);
 }

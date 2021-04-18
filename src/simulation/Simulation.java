@@ -1,6 +1,8 @@
 package simulation;
 
-import charge.Charge;
+import automail.*;
+import charge.ChargeReceipt;
+import charge.Charger;
 import exceptions.ExcessiveDeliveryException;
 import exceptions.ItemTooHeavyException;
 import exceptions.MailAlreadyDeliveredException;
@@ -13,11 +15,6 @@ import java.util.Properties;
 
 import com.unimelb.swen30006.wifimodem.WifiModem;
 
-import automail.Automail;
-import automail.MailItem;
-import automail.MailPool;
-import automail.MailPoolItem;
-
 /**
  * This class simulates the behaviour of AutoMail
  */
@@ -25,29 +22,33 @@ public class Simulation {
 	private static int NUM_ROBOTS;
 	private static double CHARGE_THRESHOLD;
 	private static boolean CHARGE_DISPLAY;
-	
-    /** Constant for the mail generator */
+	private static final double MARKUP_PERCENTAGE = 0.059;
+	private static final double ACTIVITY_UNIT_PRICE = 0.224;
+
+	/** Constant for the mail generator */
     private static int MAIL_TO_CREATE;
     private static int MAIL_MAX_WEIGHT;
     
     private static ArrayList<MailItem> MAIL_DELIVERED;
+    private static ArrayList<ChargeReceipt> CHARGE_RECEIPTS;
     private static double total_delay = 0;
     private static WifiModem wModem = null;
 
-    public static void main(String[] args) throws InstantiationException, IllegalAccessException, ClassNotFoundException, IOException {
-    	
-    	/** Load properties for simulation based on either default or a properties file.**/
+    public static void main(String[] args) throws IOException {
+
+		/* Load properties for simulation based on either default or a properties file.**/
     	Properties automailProperties = setUpProperties();
     	
     	//An array list to record mails that have been delivered
-        MAIL_DELIVERED = new ArrayList<MailItem>();
+        MAIL_DELIVERED = new ArrayList<>();
+		CHARGE_RECEIPTS = new ArrayList<>();
                 
-        /** This code section below is to save a random seed for generating mails.
-         * If a program argument is entered, the first argument will be a random seed.
-         * If not a random seed will be from a properties file. 
-         * Otherwise, no a random seed. */
-        
-        /** Used to see whether a seed is initialized or not */
+        /* This code section below is to save a random seed for generating mails.
+          If a program argument is entered, the first argument will be a random seed.
+          If not a random seed will be from a properties file.
+          Otherwise, no a random seed. */
+
+		/* Used to see whether a seed is initialized or not */
         HashMap<Boolean, Integer> seedMap = new HashMap<>();
         if (args.length == 0 ) { // No arg
         	String seedProp = automailProperties.getProperty("Seed");
@@ -71,27 +72,24 @@ public class Simulation {
 			mException.printStackTrace();
 		}
         
-        /**
-         * This code section is for running a simulation
+        /*
+          This code section is for running a simulation
          */
-        /* Setting up Charge system */
-		Charge.setActivityUnitPrice(0.224);
-		Charge.setMarkupPercentage(0.059);
-		Charge.setWModem(Building.MAILROOM_LOCATION);
+        /* Setting up Charger system */
+		Charger charger = new Charger(MARKUP_PERCENTAGE, ACTIVITY_UNIT_PRICE, Building.MAILROOM_LOCATION);
 
 		/* Instantiate MailPool and Automail */
-     	MailPool mailPool = new MailPool(CHARGE_THRESHOLD);
+     	MailPool mailPool = new MailPool(CHARGE_THRESHOLD, charger);
      	Automail automail;
      	if (CHARGE_DISPLAY) {
-			automail = new Automail(mailPool, new ChargedReportDelivery(), NUM_ROBOTS);
+			automail = new Automail(mailPool, new ChargedReportDelivery(), charger, NUM_ROBOTS);
 		} else {
-			automail = new Automail(mailPool, new ChargelessReportDelivery(), NUM_ROBOTS);
+			automail = new Automail(mailPool, new ChargelessReportDelivery(), charger, NUM_ROBOTS);
 		}
-        //Automail automail = new Automail(mailPool, new ChargelessReportDelivery(), charge, NUM_ROBOTS);
         MailGenerator mailGenerator = new MailGenerator(MAIL_TO_CREATE, MAIL_MAX_WEIGHT, mailPool, seedMap);
 
 
-        /** Generate all the mails */
+		/* Generate all the mails */
         mailGenerator.generateAllMail();
         while(MAIL_DELIVERED.size() != mailGenerator.MAIL_TO_CREATE) {
         	// System.out.printf("Delivered: %4d; Created: %4d%n", MAIL_DELIVERED.size(), mailGenerator.MAIL_TO_CREATE);
@@ -109,6 +107,14 @@ public class Simulation {
             Clock.Tick();
         }
         printResults();
+        if (CHARGE_DISPLAY) {
+			System.out.println("Total mails delivered: " + MAIL_DELIVERED.size());
+			System.out.printf("Total billable activity: %.2f%n", calculateTotalBillableActivity(charger));
+			System.out.printf("Total lookups: %d | Successful lookups: %d | Failed lookups: %d%n",
+					charger.getTotalLookups(), charger.getSuccessfulLookups(), charger.getFailedLookups());
+			System.out.printf("Total activity cost: %.2f%n", calculateTotalActivityCost(charger));
+			System.out.printf("Total service cost: %.2f%n", calculateTotalServiceFee());
+		}
         System.out.println(wModem.Turnoff());
     }
     
@@ -122,14 +128,8 @@ public class Simulation {
     	automailProperties.setProperty("ChargeDisplay", "false");
 
     	// Read properties
-		FileReader inStream = null;
-		try {
-			inStream = new FileReader("automail.properties");
+		try (FileReader inStream = new FileReader("automail.properties")) {
 			automailProperties.load(inStream);
-		} finally {
-			 if (inStream != null) {
-	                inStream.close();
-	            }
 		}
 		
 		// Floors
@@ -160,12 +160,15 @@ public class Simulation {
 
     static class ChargelessReportDelivery implements IMailDelivery {
     	/** Confirm the delivery and calculate the total score */
-    	public void deliver(MailItem deliveryItem){
-    		if(!MAIL_DELIVERED.contains(deliveryItem)){
-    			MAIL_DELIVERED.add(deliveryItem);
-                System.out.printf("T: %3d > Delivered(%4d) [%s]%n", Clock.Time(), MAIL_DELIVERED.size(), deliveryItem.toString());
+    	public void deliver(ChargedMailItem deliveryItem){
+    		MailItem mailItem = deliveryItem.getMailItem();
+    		ChargeReceipt chargeReceipt = deliveryItem.getChargeReceipt();
+    		if(!MAIL_DELIVERED.contains(mailItem)){
+    			MAIL_DELIVERED.add(mailItem);
+    			CHARGE_RECEIPTS.add(chargeReceipt);
+                System.out.printf("T: %3d > Delivered(%4d) [%s]%n", Clock.Time(), MAIL_DELIVERED.size(), mailItem.toString());
     			// Calculate delivery score
-    			total_delay += calculateDeliveryDelay(deliveryItem);
+    			total_delay += calculateDeliveryDelay(mailItem);
     		}
     		else{
     			try {
@@ -178,13 +181,15 @@ public class Simulation {
     }
 	static class ChargedReportDelivery implements IMailDelivery {
 		/** Confirm the delivery and calculate the total score */
-		public void deliver(MailItem deliveryItem){
-			if(!MAIL_DELIVERED.contains(deliveryItem)){
-				MailPoolItem chargedItem = new MailPoolItem(deliveryItem);
-				MAIL_DELIVERED.add(deliveryItem);
-				System.out.printf("T: %3d > Delivered(%4d) [%s]%n", Clock.Time(), MAIL_DELIVERED.size(), chargedItem.toString());
+		public void deliver(ChargedMailItem deliveryItem){
+			MailItem mailItem = deliveryItem.getMailItem();
+			ChargeReceipt chargeReceipt = deliveryItem.getChargeReceipt();
+			if(!MAIL_DELIVERED.contains(mailItem)){
+				MAIL_DELIVERED.add(mailItem);
+				CHARGE_RECEIPTS.add(chargeReceipt);
+				System.out.printf("T: %3d > Delivered(%4d) [%s]%n", Clock.Time(), MAIL_DELIVERED.size(), deliveryItem.toString());
 				// Calculate delivery score
-				total_delay += calculateDeliveryDelay(deliveryItem);
+				total_delay += calculateDeliveryDelay(mailItem);
 			}
 			else{
 				try {
@@ -204,11 +209,44 @@ public class Simulation {
         return Math.pow(Clock.Time() - deliveryItem.getArrivalTime(),penalty)*(1+Math.sqrt(priority_weight));
     }
 
-    public static void printResults(){
+    public static void printResults() {
         System.out.println("T: "+Clock.Time()+" | Simulation complete!");
         System.out.println("Final Delivery time: "+Clock.Time());
         System.out.printf("Delay: %.2f%n", total_delay);
-        System.out.println("Total mails delivered: " + MAIL_DELIVERED.size());
-		System.out.println("Total lookups: " + Charge.getTotalLookups());
     }
+
+    private static double calculateTotalBillableActivity(Charger charger) {
+    	// Since we do two lookups per mailItem but only bill the tenant one such lookup, we can divide
+		// //the total lookup in charger by 2 to obtain the lookups made for determining mail priority
+    	double totalActivity = charger.getTotalLookups()/2.0 * ActivityUnit.REMOTE_LOOKUP;
+
+    	// we can assume all of the mailItems are ChargedMailItems here
+    	for (ChargeReceipt chargeReceipt : CHARGE_RECEIPTS) {
+			totalActivity += chargeReceipt.getActivityUnits();
+		}
+
+    	return totalActivity;
+	}
+
+	private static double calculateTotalActivityCost(Charger charger) {
+    	/* Obtain the cost of making lookups to service fee for determining mail priority */
+		double totalActivityCost = charger.getTotalLookups()/2.0 * ActivityUnit.REMOTE_LOOKUP * ACTIVITY_UNIT_PRICE;
+
+		// we can assume all of the mailItems are ChargedMailItems here
+		for (ChargeReceipt chargeReceipt : CHARGE_RECEIPTS) {
+			totalActivityCost += chargeReceipt.getActivityCost();
+		}
+
+		return totalActivityCost;
+	}
+
+	private static double calculateTotalServiceFee() {
+    	double totalServiceFee = 0.0;
+
+    	for (ChargeReceipt chargeReceipt : CHARGE_RECEIPTS) {
+    		totalServiceFee += chargeReceipt.getServiceFee();
+		}
+
+    	return totalServiceFee;
+	}
 }

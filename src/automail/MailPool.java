@@ -4,7 +4,7 @@ import java.util.LinkedList;
 import java.util.Comparator;
 import java.util.ListIterator;
 
-import charge.Charge;
+import charge.Charger;
 import exceptions.ItemTooHeavyException;
 
 /**
@@ -15,10 +15,22 @@ import exceptions.ItemTooHeavyException;
  */
 public class MailPool {
 	// Decorator
-	
-	public class ItemComparator implements Comparator<MailPoolItem> {
+
+	private class Item {
+		int destination;
+		double estimated_charge;
+		MailItem mailItem;
+
+		public Item(MailItem mailItem) {
+			this.destination = mailItem.getDestFloor();
+			this.estimated_charge = charger.estimateCharge(mailItem);
+			this.mailItem = mailItem;
+		}
+	}
+
+	public class ItemComparator implements Comparator<Item> {
 		@Override
-		public int compare(MailPoolItem i1, MailPoolItem i2) {
+		public int compare(Item i1, Item i2) {
 			int order = 0;
 			if (i1.destination < i2.destination) {
 				order = 1;
@@ -33,9 +45,9 @@ public class MailPool {
 	* Give priority to the item with estimated charge above the threshold
 	* If both items are above the threshold, give to higher item with higher charge
 	* If both items are below threshold, use destination floor?*/
-	public class PriorityComparator implements Comparator<MailPoolItem> {
+	public class PriorityComparator implements Comparator<Item> {
 		@Override
-		public int compare(MailPoolItem i1, MailPoolItem i2) {
+		public int compare(Item i1, Item i2) {
 			int order = 0;
 			// if either of the items have a higher charge than the threshold
 			if (Double.compare(i1.estimated_charge, charge_threshold) > 0 || Double.compare(i2.estimated_charge, charge_threshold) > 0) {
@@ -52,17 +64,19 @@ public class MailPool {
 		}
 	}
 	
-	private LinkedList<MailPoolItem> pool;
-	private LinkedList<Robot> robots;
-	private Charge charge;
-	private double charge_threshold;
+	private final LinkedList<Item> pool;
+	private final LinkedList<Robot> robots;
+	private final Charger charger;
+	private final double charge_threshold;
+	private final Comparator<Item> comparatorToUse;
 
-	public MailPool(double charge_threshold){
+	public MailPool(double charge_threshold, Charger charger){
 		// Start empty
-		this.charge = charge;
+		this.charger = charger;
 		this.charge_threshold = charge_threshold;
-		pool = new LinkedList<>();
-		robots = new LinkedList<>();
+		this.pool = new LinkedList<>();
+		this.robots = new LinkedList<>();
+		this.comparatorToUse = Double.compare(charge_threshold, 0.0) == 0 ? new ItemComparator() : new PriorityComparator();
 	}
 
 	/**
@@ -70,9 +84,9 @@ public class MailPool {
      * @param mailItem the mail item being added.
      */
 	public void addToPool(MailItem mailItem) {
-		MailPoolItem item = new MailPoolItem(mailItem);
-		pool.add(item);
-		pool.sort(new ItemComparator());
+		Item item = new Item(mailItem);
+		this.pool.add(item);
+		this.pool.sort(this.comparatorToUse);
 	}
 
 	/**
@@ -80,7 +94,7 @@ public class MailPool {
      */
 	public void loadItemsToRobot() throws ItemTooHeavyException {
 		//List available robots
-		ListIterator<Robot> i = robots.listIterator();
+		ListIterator<Robot> i = this.robots.listIterator();
 		while (i.hasNext()) loadItem(i);
 	}
 	
@@ -89,20 +103,20 @@ public class MailPool {
 		Robot robot = i.next();
 		assert(robot.isEmpty());
 		// System.out.printf("P: %3d%n", pool.size());
-		ListIterator<MailPoolItem> j = pool.listIterator();
-		if (pool.size() > 0) {
+		ListIterator<Item> j = this.pool.listIterator();
+		if (this.pool.size() > 0) {
 			try {
 			robot.addToHand(j.next().mailItem); // hand first as we want higher priority delivered first
 			j.remove();
-			if (pool.size() > 0) {
+			if (this.pool.size() > 0) {
 				robot.addToTube(j.next().mailItem);
 				j.remove();
 			}
 			robot.dispatch(); // send the robot off if it has any items to deliver
 			i.remove();       // remove from mailPool queue
-			} catch (Exception e) { 
-	            throw e; 
-	        } 
+			} catch (Exception e) {
+	            throw e;
+	        }
 		}
 	}
 
