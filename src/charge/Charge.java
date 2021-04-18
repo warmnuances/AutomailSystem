@@ -8,29 +8,38 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Charge {
-    private Map<Integer, Double> _previousLookupServiceFee = new HashMap<>();
+    private static Map<Integer, Double> _previousLookupServiceFee = new HashMap<>();
     private static final int ROBOT_MOVEMENT = 5;
     private static final double REMOTE_LOOKUP = 0.1;
-    private final Double markupPercentage;
-    private final Double activityUnitPrice;
+    private static Double markupPercentage;
+    private static Double activityUnitPrice;
     private static WifiModem wModem;
 
-    public Charge(Double markupPercentage, Double activityUnitPrice, Integer installedOnFloor){
-        this.markupPercentage = markupPercentage;
-        this.activityUnitPrice = activityUnitPrice;
-        try{
-            this.wModem = WifiModem.getInstance(installedOnFloor);
-        }catch(Exception e){
-            e.printStackTrace();
-        }
+    private static int totalLookups = 0;
+    private static int failedLookups = 0;
+    private static int successfulLookups = 0;
 
+    public static void setMarkupPercentage(double markupPct) {
+        markupPercentage = markupPct;
     }
 
-    private void updatePreviousLookupServiceFee(int floorNumber, Double price){
+    public static void setActivityUnitPrice(double actUnitPrice) {
+        activityUnitPrice = actUnitPrice;
+    }
+
+    public static void setWModem(int installedOnFloor) {
+        try{
+            wModem = WifiModem.getInstance(installedOnFloor);
+        } catch(Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    private static void updatePreviousLookupServiceFee(int floorNumber, Double price){
         _previousLookupServiceFee.put(floorNumber, price);
     }
 
-    private Double getPreviousLookupPrice(int floorNumber){
+    public static Double getPreviousLookupServiceFee(int floorNumber){
         if (_previousLookupServiceFee.get(floorNumber) != null) {
             return _previousLookupServiceFee.get(floorNumber);
         } else {
@@ -42,20 +51,58 @@ public class Charge {
         }
     }
 
-    public Double calculateCharge(MailItem mailItem) {
-        int dest_floor = mailItem.getDestFloor();
-        double service_fee = wModem.forwardCallToAPI_LookupPrice(dest_floor);
+    public static Double getServiceFee(int floorNumber) {
+        double service_fee = wModem.forwardCallToAPI_LookupPrice(floorNumber);
+        totalLookups++;
         if (service_fee > 0) {
-            updatePreviousLookupServiceFee(dest_floor, service_fee);
+            updatePreviousLookupServiceFee(floorNumber, service_fee);
+            successfulLookups++;
         } else {
-            service_fee = getPreviousLookupPrice(dest_floor);
+            service_fee = getPreviousLookupServiceFee(floorNumber);
+            failedLookups++;
         }
-        int num_floors = dest_floor - Building.MAILROOM_LOCATION;
+        return service_fee;
+    }
+
+    public static Double calculateActivityUnits(int floorNumber) {
         // mailroom -> destination -> mailroom + lookup
-        double activity_units = 2 * num_floors * ROBOT_MOVEMENT + REMOTE_LOOKUP;
-        double activity_cost = activity_units * this.activityUnitPrice;
-        double cost = service_fee + activity_cost;
-        double charge = cost * (1+this.markupPercentage);
+        int num_floors = floorNumber - Building.MAILROOM_LOCATION;
+        return 2 * num_floors * ROBOT_MOVEMENT + REMOTE_LOOKUP;
+    }
+
+    public static Double calculateActivityCost(Double activityUnits) {
+        return activityUnits * activityUnitPrice;
+    }
+
+    public static Double calculateTotalCost(Double activityCost, Double serviceFee) {
+        return activityCost + serviceFee;
+    }
+
+    public static Double calculateTotalCharge(Double totalCost) {
+        return totalCost * (1 + markupPercentage);
+    }
+
+    public static Double calculateCharge(MailItem mailItem) {
+        int dest_floor = mailItem.getDestFloor();
+        double service_fee = getServiceFee(dest_floor);
+        // mailroom -> destination -> mailroom + lookup
+        double activity_units = calculateActivityUnits(dest_floor);
+        double activity_cost = calculateActivityCost(activity_units);
+        double cost = calculateTotalCost(activity_cost, service_fee);
+        double charge = calculateTotalCharge(cost);
+
         return charge;
+    }
+
+    public static int getTotalLookups() {
+        return totalLookups;
+    }
+
+    public static int getFailedLookups() {
+        return failedLookups;
+    }
+
+    public static int getSuccessfulLookups() {
+        return successfulLookups;
     }
 }

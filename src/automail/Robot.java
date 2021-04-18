@@ -1,5 +1,6 @@
 package automail;
 
+import charge.Charge;
 import exceptions.ExcessiveDeliveryException;
 import exceptions.ItemTooHeavyException;
 import simulation.Building;

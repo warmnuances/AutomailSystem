@@ -1,5 +1,6 @@
 package automail;
 
+import charge.Charge;
 import simulation.IMailDelivery;
 
 public class Automail {
@@ -7,7 +8,7 @@ public class Automail {
     public Robot[] robots;
     public MailPool mailPool;
     
-    public Automail(MailPool mailPool, IMailDelivery delivery, int numRobots) {  	
+    public Automail(MailPool mailPool, IMailDelivery delivery, int numRobots) {
     	/** Initialize the MailPool */
     	
     	this.mailPool = mailPool;

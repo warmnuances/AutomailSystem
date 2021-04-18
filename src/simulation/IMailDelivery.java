@@ -12,5 +12,4 @@ public interface IMailDelivery {
      * @param mailItem the mail item being delivered.
      */
 	void deliver(MailItem mailItem);
-    
 }

@@ -14,24 +14,11 @@ import exceptions.ItemTooHeavyException;
  * 
  */
 public class MailPool {
-
 	// Decorator
-	private class Item {
-		int destination;
-		double estimated_charge;
-		MailItem mailItem;
-		// Use stable sort to keep arrival time relative positions
-		// Sorting Objects uses mergesort which is stable.
-		public Item(MailItem mailItem) {
-			destination = mailItem.getDestFloor();
-			estimated_charge = charge.calculateCharge(mailItem);
-			this.mailItem = mailItem;
-		}
-	}
 	
-	public class ItemComparator implements Comparator<Item> {
+	public class ItemComparator implements Comparator<MailPoolItem> {
 		@Override
-		public int compare(Item i1, Item i2) {
+		public int compare(MailPoolItem i1, MailPoolItem i2) {
 			int order = 0;
 			if (i1.destination < i2.destination) {
 				order = 1;
@@ -46,9 +33,9 @@ public class MailPool {
 	* Give priority to the item with estimated charge above the threshold
 	* If both items are above the threshold, give to higher item with higher charge
 	* If both items are below threshold, use destination floor?*/
-	public class PriorityComparator implements Comparator<Item> {
+	public class PriorityComparator implements Comparator<MailPoolItem> {
 		@Override
-		public int compare(Item i1, Item i2) {
+		public int compare(MailPoolItem i1, MailPoolItem i2) {
 			int order = 0;
 			// if either of the items have a higher charge than the threshold
 			if (Double.compare(i1.estimated_charge, charge_threshold) > 0 || Double.compare(i2.estimated_charge, charge_threshold) > 0) {
@@ -65,12 +52,12 @@ public class MailPool {
 		}
 	}
 	
-	private LinkedList<Item> pool;
+	private LinkedList<MailPoolItem> pool;
 	private LinkedList<Robot> robots;
 	private Charge charge;
 	private double charge_threshold;
 
-	public MailPool(Charge charge, double charge_threshold){
+	public MailPool(double charge_threshold){
 		// Start empty
 		this.charge = charge;
 		this.charge_threshold = charge_threshold;
@@ -83,7 +70,7 @@ public class MailPool {
      * @param mailItem the mail item being added.
      */
 	public void addToPool(MailItem mailItem) {
-		Item item = new Item(mailItem);
+		MailPoolItem item = new MailPoolItem(mailItem);
 		pool.add(item);
 		pool.sort(new ItemComparator());
 	}
@@ -102,7 +89,7 @@ public class MailPool {
 		Robot robot = i.next();
 		assert(robot.isEmpty());
 		// System.out.printf("P: %3d%n", pool.size());
-		ListIterator<Item> j = pool.listIterator();
+		ListIterator<MailPoolItem> j = pool.listIterator();
 		if (pool.size() > 0) {
 			try {
 			robot.addToHand(j.next().mailItem); // hand first as we want higher priority delivered first

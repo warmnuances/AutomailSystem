@@ -16,6 +16,7 @@ import com.unimelb.swen30006.wifimodem.WifiModem;
 import automail.Automail;
 import automail.MailItem;
 import automail.MailPool;
+import automail.MailPoolItem;
 
 /**
  * This class simulates the behaviour of AutoMail
@@ -73,11 +74,20 @@ public class Simulation {
         /**
          * This code section is for running a simulation
          */
-        /* Instantiate MailPool and Automail */
-		Charge charge = new Charge(0.059, 0.224, Building.MAILROOM_LOCATION);
+        /* Setting up Charge system */
+		Charge.setActivityUnitPrice(0.224);
+		Charge.setMarkupPercentage(0.059);
+		Charge.setWModem(Building.MAILROOM_LOCATION);
 
-     	MailPool mailPool = new MailPool(charge, CHARGE_THRESHOLD);
-        Automail automail = new Automail(mailPool, new ReportDelivery(), NUM_ROBOTS);
+		/* Instantiate MailPool and Automail */
+     	MailPool mailPool = new MailPool(CHARGE_THRESHOLD);
+     	Automail automail;
+     	if (CHARGE_DISPLAY) {
+			automail = new Automail(mailPool, new ChargedReportDelivery(), NUM_ROBOTS);
+		} else {
+			automail = new Automail(mailPool, new ChargelessReportDelivery(), NUM_ROBOTS);
+		}
+        //Automail automail = new Automail(mailPool, new ChargelessReportDelivery(), charge, NUM_ROBOTS);
         MailGenerator mailGenerator = new MailGenerator(MAIL_TO_CREATE, MAIL_MAX_WEIGHT, mailPool, seedMap);
 
 
@@ -147,9 +157,8 @@ public class Simulation {
 		
 		return automailProperties;
     }
-    
-    static class ReportDelivery implements IMailDelivery {
-    	
+
+    static class ChargelessReportDelivery implements IMailDelivery {
     	/** Confirm the delivery and calculate the total score */
     	public void deliver(MailItem deliveryItem){
     		if(!MAIL_DELIVERED.contains(deliveryItem)){
@@ -166,8 +175,26 @@ public class Simulation {
     			}
     		}
     	}
-
     }
+	static class ChargedReportDelivery implements IMailDelivery {
+		/** Confirm the delivery and calculate the total score */
+		public void deliver(MailItem deliveryItem){
+			if(!MAIL_DELIVERED.contains(deliveryItem)){
+				MailPoolItem chargedItem = new MailPoolItem(deliveryItem);
+				MAIL_DELIVERED.add(deliveryItem);
+				System.out.printf("T: %3d > Delivered(%4d) [%s]%n", Clock.Time(), MAIL_DELIVERED.size(), chargedItem.toString());
+				// Calculate delivery score
+				total_delay += calculateDeliveryDelay(deliveryItem);
+			}
+			else{
+				try {
+					throw new MailAlreadyDeliveredException();
+				} catch (MailAlreadyDeliveredException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
     
     private static double calculateDeliveryDelay(MailItem deliveryItem) {
     	// Penalty for longer delivery times
@@ -181,5 +208,7 @@ public class Simulation {
         System.out.println("T: "+Clock.Time()+" | Simulation complete!");
         System.out.println("Final Delivery time: "+Clock.Time());
         System.out.printf("Delay: %.2f%n", total_delay);
+        System.out.println("Total mails delivered: " + MAIL_DELIVERED.size());
+		System.out.println("Total lookups: " + Charge.getTotalLookups());
     }
 }
