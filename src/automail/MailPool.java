@@ -41,32 +41,40 @@ public class MailPool {
 		}
 	}
 
-
+	/*
+	* Give priority to the item with estimated charge above the threshold
+	* If both items are above the threshold, give to higher item with higher charge
+	* If both items are below threshold, use destination floor?*/
 	public class PriorityComparator implements Comparator<Item> {
 		@Override
 		public int compare(Item i1, Item i2) {
 			int order = 0;
-			if (i1.estimated_charge > i2.estimated_charge) {
-				order = 1;
-			} else if (i1.estimated_charge < i2.estimated_charge) {
-				order = -1;
+			// if either of the items have a higher charge than the threshold
+			if (Double.compare(i1.estimated_charge, charge_threshold) > 0 || Double.compare(i2.estimated_charge, charge_threshold) > 0) {
+				// double.compare(i2,i1) returns -1 if i2<i1, 0 if i2==i1 and 1 if i2>i1, which is what we need since we need descending
+				return Double.compare(i2.estimated_charge, i1.estimated_charge);
+			} else {
+				if (i1.destination < i2.destination) {
+					order = 1;
+				} else if (i1.destination > i2.destination) {
+					order = -1;
+				}
 			}
 			return order;
 		}
 	}
-
-
-
 	
 	private LinkedList<Item> pool;
 	private LinkedList<Robot> robots;
 	private Charge charge;
+	private double charge_threshold;
 
-	public MailPool(int nrobots, Charge charge){
+	public MailPool(Charge charge, double charge_threshold){
 		// Start empty
 		this.charge = charge;
-		pool = new LinkedList<Item>();
-		robots = new LinkedList<Robot>();
+		this.charge_threshold = charge_threshold;
+		pool = new LinkedList<>();
+		robots = new LinkedList<>();
 	}
 
 	/**
@@ -76,7 +84,7 @@ public class MailPool {
 	public void addToPool(MailItem mailItem) {
 		Item item = new Item(mailItem);
 		pool.add(item);
-		pool.sort(new PriorityComparator());
+		pool.sort(new ItemComparator());
 	}
 
 	/**

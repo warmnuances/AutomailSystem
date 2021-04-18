@@ -74,9 +74,9 @@ public class Simulation {
          * This code section is for running a simulation
          */
         /* Instantiate MailPool and Automail */
-		Charge charge = new Charge(0.059, 0.224,Building.MAILROOM_LOCATION);
+		Charge charge = new Charge(0.059, 0.224, Building.MAILROOM_LOCATION);
 
-     	MailPool mailPool = new MailPool(NUM_ROBOTS, charge);
+     	MailPool mailPool = new MailPool(charge, CHARGE_THRESHOLD);
         Automail automail = new Automail(mailPool, new ReportDelivery(), NUM_ROBOTS);
         MailGenerator mailGenerator = new MailGenerator(MAIL_TO_CREATE, MAIL_MAX_WEIGHT, mailPool, seedMap);
 
@@ -111,7 +111,6 @@ public class Simulation {
     	automailProperties.setProperty("ChargeThreshold", "0");
     	automailProperties.setProperty("ChargeDisplay", "false");
 
-    	
     	// Read properties
 		FileReader inStream = null;
 		try {
