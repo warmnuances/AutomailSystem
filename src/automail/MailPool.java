@@ -15,12 +15,13 @@ import exceptions.ItemTooHeavyException;
  */
 public class MailPool {
 
+	// Decorator
 	private class Item {
 		int destination;
 		double estimated_charge;
 		MailItem mailItem;
 		// Use stable sort to keep arrival time relative positions
-		
+		// Sorting Objects uses mergesort which is stable.
 		public Item(MailItem mailItem) {
 			destination = mailItem.getDestFloor();
 			estimated_charge = charge.calculateCharge(mailItem);
