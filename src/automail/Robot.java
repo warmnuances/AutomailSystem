@@ -94,11 +94,10 @@ public class Robot {
                     /* Delivery complete, report this to the simulator! */
                     /* Formula for calculating activity units is a round trip from mailroom to destination for now
                     *  with a single lookup*/
-                    double activityUnits = 2 * (this.destination_floor - Building.MAILROOM_LOCATION) *
-                                           ActivityUnit.ROBOT_MOVEMENT + ActivityUnit.REMOTE_LOOKUP;
+                    double activityUnits = calculateActivityUnits();
                     ChargeReceipt chargeReceipt = this.charger.chargeTenant(this.destination_floor, activityUnits);
 
-                    this.delivery.deliver(new ChargedMailItem(this.deliveryItem, chargeReceipt));
+                    this.delivery.deliver(new DeliveredMailItem(this.deliveryItem, chargeReceipt));
                     this.deliveryItem = null;
                     this.deliveryCounter++;
                     if(this.deliveryCounter > 2){  // Implies a simulation bug
@@ -121,6 +120,12 @@ public class Robot {
     			}
                 break;
     	}
+    }
+
+    /* Current formula is just a round trip, but is configurable if needed in the future*/
+    private double calculateActivityUnits() {
+        return 2 * (this.destination_floor - Building.MAILROOM_LOCATION) * ActivityUnit.ROBOT_MOVEMENT
+               + ActivityUnit.REMOTE_LOOKUP;
     }
 
     /**

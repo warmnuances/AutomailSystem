@@ -1,6 +1,8 @@
 package charge;
 
-public class ChargeReceipt {
+import automail.Receipt;
+
+public class ChargeReceipt implements Receipt {
     private double activityUnits;
     private double serviceFee;
     private double activityCost;
@@ -33,5 +35,10 @@ public class ChargeReceipt {
 
     public double getCharge() {
         return charge;
+    }
+
+    public String printReceipt() {
+        return String.format("Charge: %.2f | Cost: %.2f | Fee: %.2f | Activity: %.2f",
+                this.getCharge(), this.getCost(), this.getServiceFee(), this.getActivityUnits());
     }
 }

@@ -160,7 +160,7 @@ public class Simulation {
 
     static class ChargelessReportDelivery implements IMailDelivery {
     	/** Confirm the delivery and calculate the total score */
-    	public void deliver(ChargedMailItem deliveryItem){
+    	public void deliver(DeliveredMailItem deliveryItem){
     		MailItem mailItem = deliveryItem.getMailItem();
     		ChargeReceipt chargeReceipt = deliveryItem.getChargeReceipt();
     		if(!MAIL_DELIVERED.contains(mailItem)){
@@ -181,7 +181,7 @@ public class Simulation {
     }
 	static class ChargedReportDelivery implements IMailDelivery {
 		/** Confirm the delivery and calculate the total score */
-		public void deliver(ChargedMailItem deliveryItem){
+		public void deliver(DeliveredMailItem deliveryItem){
 			MailItem mailItem = deliveryItem.getMailItem();
 			ChargeReceipt chargeReceipt = deliveryItem.getChargeReceipt();
 			if(!MAIL_DELIVERED.contains(mailItem)){
