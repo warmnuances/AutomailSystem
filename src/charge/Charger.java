@@ -29,15 +29,18 @@ public class Charger {
             e.printStackTrace();
         }
     }
+
     // Updates the hashmap with a new service fee
     private void updatePreviousLookupServiceFee(int floorNumber, Double price){
         _previousLookupServiceFee.put(floorNumber, price);
     }
+
     // Gets the previously known service fee from the hashmap
     private double getPreviousLookupServiceFee(int floorNumber){
         if (_previousLookupServiceFee.get(floorNumber) != null) {
             return _previousLookupServiceFee.get(floorNumber);
         } else {
+            // If no fee to be found, return the average lookup fee of all floors
             double averageServiceFee = 0.0;
             for(Map.Entry<Integer, Double> entry: _previousLookupServiceFee.entrySet()) {
                 averageServiceFee += entry.getValue();
@@ -45,6 +48,7 @@ public class Charger {
             return averageServiceFee / _previousLookupServiceFee.size();
         }
     }
+
     // Getting service fee from BMS and record success/failure of lookups
     private double getServiceFee(int floorNumber) {
         double service_fee = wModem.forwardCallToAPI_LookupPrice(floorNumber);
@@ -58,6 +62,7 @@ public class Charger {
         }
         return service_fee;
     }
+
     // Estimates the activity units of delivering
     private double estimateActivityUnits(int floorNumber) {
         // mailroom -> destination -> mailroom + lookup
@@ -65,18 +70,22 @@ public class Charger {
         return 2 * num_floors * ActivityUnit.ROBOT_MOVEMENT + ActivityUnit.REMOTE_LOOKUP;
     }
 
+    // Calculates the total activity cost
     private double calculateActivityCost(Double activityUnits) {
         return activityUnits * activityUnitPrice;
     }
 
+    // Calculates the total cost
     private double calculateTotalCost(Double activityCost, Double serviceFee) {
         return activityCost + serviceFee;
     }
 
+    // Calculate the total amount to charge the tenant
     private double calculateTotalCharge(Double totalCost) {
         return totalCost * (1 + markupPercentage);
     }
 
+    // Charges the tenant
     public ChargeReceipt chargeTenant(int destinationFloor, double activityUnits) {
         double serviceFee = getServiceFee(destinationFloor);
         double activityCost = calculateActivityCost(activityUnits);
