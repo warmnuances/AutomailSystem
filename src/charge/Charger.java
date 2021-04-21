@@ -1,3 +1,4 @@
+/*W13 Team 1 (Tues 2.15pm)*/
 package charge;
 
 import automail.ActivityUnit;
@@ -10,7 +11,7 @@ import java.util.Map;
 
 public class Charger {
     // a hashmap that contains service fee previously lookup'd keyed by servicing floor
-    private Map<Integer, Double> _previousLookupServiceFee = new HashMap<>();
+    private final Map<Integer, Double> _previousLookupServiceFee = new HashMap<>();
     private final double markupPercentage;
     private final double activityUnitPrice;
     private WifiModem wModem;
@@ -28,11 +29,11 @@ public class Charger {
             e.printStackTrace();
         }
     }
-
+    // Updates the hashmap with a new service fee
     private void updatePreviousLookupServiceFee(int floorNumber, Double price){
         _previousLookupServiceFee.put(floorNumber, price);
     }
-
+    // Gets the previously known service fee from the hashmap
     private double getPreviousLookupServiceFee(int floorNumber){
         if (_previousLookupServiceFee.get(floorNumber) != null) {
             return _previousLookupServiceFee.get(floorNumber);
@@ -44,7 +45,7 @@ public class Charger {
             return averageServiceFee / _previousLookupServiceFee.size();
         }
     }
-
+    // Getting service fee from BMS and record success/failure of lookups
     private double getServiceFee(int floorNumber) {
         double service_fee = wModem.forwardCallToAPI_LookupPrice(floorNumber);
         this.totalLookups++;
@@ -57,7 +58,7 @@ public class Charger {
         }
         return service_fee;
     }
-
+    // Estimates the activity units of delivering
     private double estimateActivityUnits(int floorNumber) {
         // mailroom -> destination -> mailroom + lookup
         int num_floors = floorNumber - Building.MAILROOM_LOCATION;
@@ -85,15 +86,15 @@ public class Charger {
         return new ChargeReceipt(activityUnits, serviceFee, activityCost, cost, charge);
     }
 
+    // Estimates the charge in order to determine priority
     public double estimateCharge(MailItem mailItem) {
         int dest_floor = mailItem.getDestFloor();
         double serviceFee = getServiceFee(dest_floor);
         double activityUnits = estimateActivityUnits(dest_floor);
         double activityCost = calculateActivityCost(activityUnits);
         double cost = calculateTotalCost(activityCost, serviceFee);
-        double charge = calculateTotalCharge(cost);
 
-        return charge;
+        return calculateTotalCharge(cost);
     }
 
     public int getTotalLookups() {

@@ -1,3 +1,4 @@
+/*W13 Team 1 (Tues 2.15pm)*/
 package automail;
 
 import java.util.Map;
@@ -70,7 +71,7 @@ public class MailItem {
    }
    
 	static private int count = 0;
-	static private Map<Integer, Integer> hashMap = new TreeMap<Integer, Integer>();
+	static private final Map<Integer, Integer> hashMap = new TreeMap<>();
 
 	@Override
 	public int hashCode() {
